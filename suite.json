@@ -1,1 +1,55 @@
-{"version":1,"suite":"security-boundary-tests","status":"contract-only","surfaces":["public","customer","admin","internal"],"environments":["main-org","test-org"],"assertions":[{"id":"declared-behavior","description":"This suite specifies negative authorization, input limits, origin policy, credential separation, and safe failures. Deterministic inputs and expected outcomes are required.","evidence":"contract"},{"id":"dual-environment","description":"Identical assertions target the main organization and isolated test fixture.","evidence":"contract"},{"id":"evidence-gate","description":"Live status is forbidden until hosted execution retains redacted evidence.","evidence":"contract"}],"owners":["ores-chat"]}
+{
+  "version": 1,
+  "suite": "security-boundary-tests",
+  "status": "contract-only",
+  "surfaces": ["public", "customer", "admin", "internal"],
+  "environments": ["main-org", "test-org"],
+  "assertions": [
+    {
+      "id": "declared-behavior",
+      "description": "This suite specifies negative authorization, input limits, origin policy, credential separation, and safe failures. Deterministic inputs and expected outcomes are required.",
+      "evidence": "contract"
+    },
+    {
+      "id": "dual-environment",
+      "description": "Identical assertions target the main organization and isolated test fixture.",
+      "evidence": "contract"
+    },
+    {
+      "id": "evidence-gate",
+      "description": "Live status is forbidden until hosted execution retains redacted evidence.",
+      "evidence": "contract"
+    },
+    {
+      "id": "auth-before-rate-limit",
+      "description": "Unauthenticated and wrong-realm requests stop before any rate-limit or Redis lookup.",
+      "evidence": "shared-stack-boundary/cases.json"
+    },
+    {
+      "id": "trusted-proxy-only",
+      "description": "Forwarded identity is considered only for configured trusted peers, and raw identity values never enter receipts.",
+      "evidence": "shared-stack-boundary/cases.json"
+    },
+    {
+      "id": "opaque-rate-keys",
+      "description": "Only versioned opaque HMAC-shaped rate-limit keys are accepted; raw tenant or principal material fails closed.",
+      "evidence": "shared-stack-boundary/cases.json"
+    },
+    {
+      "id": "denial-only-local-cache",
+      "description": "The local Redis-backed LRU may short-circuit active denials but may never cache permits or over-admit traffic.",
+      "evidence": "shared-stack-boundary/cases.json"
+    },
+    {
+      "id": "redis-and-telemetry-fail-closed",
+      "description": "Strict enforcement rejects Redis unavailability and telemetry emits approved key names only, never sensitive values.",
+      "evidence": "shared-stack-boundary/cases.json"
+    },
+    {
+      "id": "production-test-controls-disabled",
+      "description": "Production startup rejects enabled test bypass or fault injection before serving traffic.",
+      "evidence": "shared-stack-boundary/cases.json"
+    }
+  ],
+  "owners": ["ores-chat"]
+}
