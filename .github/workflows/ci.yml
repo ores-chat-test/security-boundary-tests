@@ -9,10 +9,22 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: security-boundary-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   contract:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: ores-chat-test/.github@45aac3517015fdfe2eee74ac53a6ae7fc397cf04
+      - name: Check out exact source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Validate ORES Chat test-suite declaration
+        uses: ores-chat-test/.github@45aac3517015fdfe2eee74ac53a6ae7fc397cf04
+
+      - name: Prove shared middleware, rate-limit, Redis, and telemetry boundaries
+        run: node shared-stack-boundary/validate.mjs
