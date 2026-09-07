@@ -1,0 +1,421 @@
+{
+  "schemaVersion": "ores.shared-stack-boundary.cases.v1",
+  "cases": [
+    {
+      "id": "production-rejects-test-bypass",
+      "input": {
+        "environment": "production",
+        "routeId": "messages.create",
+        "routeRealm": "customer",
+        "testBypassEnabled": true,
+        "faultInjectionEnabled": false,
+        "peerTrusted": false,
+        "forwardedIdentityPresent": false,
+        "actor": { "active": true, "realm": "customer", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "ores:rl:v1:0000000000000000000000000000000000000000000000000000000000000000",
+        "localCacheDecision": "miss",
+        "redisDecision": "allow",
+        "telemetryAttributes": {}
+      },
+      "expected": {
+        "status": 500,
+        "reason": "unsafe-test-controls",
+        "startupAccepted": false,
+        "clientIdentitySource": "unresolved",
+        "rateLimitChecked": false,
+        "redisChecked": false,
+        "rateDecision": "unsafe-test-controls",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "request.id", "route.id"]
+      }
+    },
+    {
+      "id": "production-rejects-fault-injection",
+      "input": {
+        "environment": "production",
+        "routeId": "messages.create",
+        "routeRealm": "customer",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": true,
+        "peerTrusted": false,
+        "forwardedIdentityPresent": false,
+        "actor": { "active": true, "realm": "customer", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "ores:rl:v1:1111111111111111111111111111111111111111111111111111111111111111",
+        "localCacheDecision": "miss",
+        "redisDecision": "allow",
+        "telemetryAttributes": {}
+      },
+      "expected": {
+        "status": 500,
+        "reason": "unsafe-test-controls",
+        "startupAccepted": false,
+        "clientIdentitySource": "unresolved",
+        "rateLimitChecked": false,
+        "redisChecked": false,
+        "rateDecision": "unsafe-test-controls",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "request.id", "route.id"]
+      }
+    },
+    {
+      "id": "untrusted-forwarded-identity-is-ignored",
+      "input": {
+        "environment": "production",
+        "routeId": "messages.create",
+        "routeRealm": "customer",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": false,
+        "peerTrusted": false,
+        "forwardedIdentityPresent": true,
+        "actor": { "active": true, "realm": "customer", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "ores:rl:v1:2222222222222222222222222222222222222222222222222222222222222222",
+        "localCacheDecision": "miss",
+        "redisDecision": "allow",
+        "telemetryAttributes": { "tenant.hash": "synthetic", "principal.hash": "synthetic" }
+      },
+      "expected": {
+        "status": 200,
+        "reason": "allowed",
+        "startupAccepted": true,
+        "clientIdentitySource": "peer",
+        "rateLimitChecked": true,
+        "redisChecked": true,
+        "rateDecision": "allow",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "principal.hash", "rate.decision", "rate.policy", "request.id", "route.id", "tenant.hash"]
+      }
+    },
+    {
+      "id": "trusted-proxy-forwarded-identity-is-accepted-as-source-only",
+      "input": {
+        "environment": "production",
+        "routeId": "messages.create",
+        "routeRealm": "customer",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": false,
+        "peerTrusted": true,
+        "forwardedIdentityPresent": true,
+        "actor": { "active": true, "realm": "customer", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "ores:rl:v1:3333333333333333333333333333333333333333333333333333333333333333",
+        "localCacheDecision": "miss",
+        "redisDecision": "allow",
+        "telemetryAttributes": {}
+      },
+      "expected": {
+        "status": 200,
+        "reason": "allowed",
+        "startupAccepted": true,
+        "clientIdentitySource": "trusted-forwarded",
+        "rateLimitChecked": true,
+        "redisChecked": true,
+        "rateDecision": "allow",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "rate.decision", "rate.policy", "request.id", "route.id"]
+      }
+    },
+    {
+      "id": "authentication-precedes-rate-limit",
+      "input": {
+        "environment": "production",
+        "routeId": "messages.create",
+        "routeRealm": "customer",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": false,
+        "peerTrusted": false,
+        "forwardedIdentityPresent": false,
+        "actor": { "active": false, "realm": "customer", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "ores:rl:v1:4444444444444444444444444444444444444444444444444444444444444444",
+        "localCacheDecision": "miss",
+        "redisDecision": "deny",
+        "telemetryAttributes": {}
+      },
+      "expected": {
+        "status": 401,
+        "reason": "unauthenticated",
+        "startupAccepted": true,
+        "clientIdentitySource": "peer",
+        "rateLimitChecked": false,
+        "redisChecked": false,
+        "rateDecision": "unauthenticated",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "request.id", "route.id"]
+      }
+    },
+    {
+      "id": "customer-identity-cannot-enter-admin-realm",
+      "input": {
+        "environment": "production",
+        "routeId": "admin.audit.read",
+        "routeRealm": "admin",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": false,
+        "peerTrusted": true,
+        "forwardedIdentityPresent": false,
+        "actor": { "active": true, "realm": "customer", "mfa": true },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "ores:rl:v1:5555555555555555555555555555555555555555555555555555555555555555",
+        "localCacheDecision": "miss",
+        "redisDecision": "allow",
+        "telemetryAttributes": {}
+      },
+      "expected": {
+        "status": 403,
+        "reason": "realm-mismatch",
+        "startupAccepted": true,
+        "clientIdentitySource": "peer",
+        "rateLimitChecked": false,
+        "redisChecked": false,
+        "rateDecision": "realm-mismatch",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "request.id", "route.id"]
+      }
+    },
+    {
+      "id": "admin-realm-requires-assurance",
+      "input": {
+        "environment": "production",
+        "routeId": "admin.audit.read",
+        "routeRealm": "admin",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": false,
+        "peerTrusted": true,
+        "forwardedIdentityPresent": false,
+        "actor": { "active": true, "realm": "admin", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "ores:rl:v1:6666666666666666666666666666666666666666666666666666666666666666",
+        "localCacheDecision": "miss",
+        "redisDecision": "allow",
+        "telemetryAttributes": {}
+      },
+      "expected": {
+        "status": 403,
+        "reason": "admin-assurance-required",
+        "startupAccepted": true,
+        "clientIdentitySource": "peer",
+        "rateLimitChecked": false,
+        "redisChecked": false,
+        "rateDecision": "admin-assurance-required",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "request.id", "route.id"]
+      }
+    },
+    {
+      "id": "unsupported-consistency-is-not-weakened",
+      "input": {
+        "environment": "production",
+        "routeId": "messages.create",
+        "routeRealm": "customer",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": false,
+        "peerTrusted": false,
+        "forwardedIdentityPresent": false,
+        "actor": { "active": true, "realm": "customer", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "advisory",
+        "rateKey": "ores:rl:v1:7777777777777777777777777777777777777777777777777777777777777777",
+        "localCacheDecision": "miss",
+        "redisDecision": "allow",
+        "telemetryAttributes": {}
+      },
+      "expected": {
+        "status": 500,
+        "reason": "unsupported-consistency",
+        "startupAccepted": true,
+        "clientIdentitySource": "peer",
+        "rateLimitChecked": false,
+        "redisChecked": false,
+        "rateDecision": "unsupported-consistency",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "request.id", "route.id"]
+      }
+    },
+    {
+      "id": "raw-rate-limit-material-is-rejected",
+      "input": {
+        "environment": "production",
+        "routeId": "messages.create",
+        "routeRealm": "customer",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": false,
+        "peerTrusted": false,
+        "forwardedIdentityPresent": false,
+        "actor": { "active": true, "realm": "customer", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "raw-principal-and-tenant",
+        "localCacheDecision": "miss",
+        "redisDecision": "allow",
+        "telemetryAttributes": {}
+      },
+      "expected": {
+        "status": 500,
+        "reason": "nonopaque-rate-key",
+        "startupAccepted": true,
+        "clientIdentitySource": "peer",
+        "rateLimitChecked": false,
+        "redisChecked": false,
+        "rateDecision": "nonopaque-rate-key",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "request.id", "route.id"]
+      }
+    },
+    {
+      "id": "local-cache-cannot-cache-permits",
+      "input": {
+        "environment": "production",
+        "routeId": "messages.create",
+        "routeRealm": "customer",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": false,
+        "peerTrusted": false,
+        "forwardedIdentityPresent": false,
+        "actor": { "active": true, "realm": "customer", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "ores:rl:v1:8888888888888888888888888888888888888888888888888888888888888888",
+        "localCacheDecision": "allow",
+        "redisDecision": "deny",
+        "telemetryAttributes": {}
+      },
+      "expected": {
+        "status": 500,
+        "reason": "unsafe-local-permit-cache",
+        "startupAccepted": true,
+        "clientIdentitySource": "peer",
+        "rateLimitChecked": true,
+        "redisChecked": false,
+        "rateDecision": "unsafe-local-permit-cache",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "rate.decision", "rate.policy", "request.id", "route.id"]
+      }
+    },
+    {
+      "id": "local-denial-cache-short-circuits-redis",
+      "input": {
+        "environment": "production",
+        "routeId": "messages.create",
+        "routeRealm": "customer",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": false,
+        "peerTrusted": false,
+        "forwardedIdentityPresent": false,
+        "actor": { "active": true, "realm": "customer", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "ores:rl:v1:9999999999999999999999999999999999999999999999999999999999999999",
+        "localCacheDecision": "deny",
+        "redisDecision": "allow",
+        "telemetryAttributes": {}
+      },
+      "expected": {
+        "status": 429,
+        "reason": "local-denial-cache",
+        "startupAccepted": true,
+        "clientIdentitySource": "peer",
+        "rateLimitChecked": true,
+        "redisChecked": false,
+        "rateDecision": "deny",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "rate.decision", "rate.policy", "request.id", "route.id"]
+      }
+    },
+    {
+      "id": "strict-mode-fails-closed-when-redis-is-unavailable",
+      "input": {
+        "environment": "production",
+        "routeId": "messages.create",
+        "routeRealm": "customer",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": false,
+        "peerTrusted": false,
+        "forwardedIdentityPresent": false,
+        "actor": { "active": true, "realm": "customer", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "ores:rl:v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "localCacheDecision": "miss",
+        "redisDecision": "unavailable",
+        "telemetryAttributes": {}
+      },
+      "expected": {
+        "status": 503,
+        "reason": "redis-unavailable",
+        "startupAccepted": true,
+        "clientIdentitySource": "peer",
+        "rateLimitChecked": true,
+        "redisChecked": true,
+        "rateDecision": "unavailable",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "rate.decision", "rate.policy", "request.id", "route.id"]
+      }
+    },
+    {
+      "id": "redis-denial-is-authoritative",
+      "input": {
+        "environment": "production",
+        "routeId": "messages.create",
+        "routeRealm": "customer",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": false,
+        "peerTrusted": false,
+        "forwardedIdentityPresent": false,
+        "actor": { "active": true, "realm": "customer", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "ores:rl:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "localCacheDecision": "miss",
+        "redisDecision": "deny",
+        "telemetryAttributes": {}
+      },
+      "expected": {
+        "status": 429,
+        "reason": "redis-denied",
+        "startupAccepted": true,
+        "clientIdentitySource": "peer",
+        "rateLimitChecked": true,
+        "redisChecked": true,
+        "rateDecision": "deny",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "rate.decision", "rate.policy", "request.id", "route.id"]
+      }
+    },
+    {
+      "id": "telemetry-retains-only-approved-key-names",
+      "input": {
+        "environment": "production",
+        "routeId": "messages.create",
+        "routeRealm": "customer",
+        "testBypassEnabled": false,
+        "faultInjectionEnabled": false,
+        "peerTrusted": false,
+        "forwardedIdentityPresent": false,
+        "actor": { "active": true, "realm": "customer", "mfa": false },
+        "supportedConsistencyModes": ["strict"],
+        "requestedConsistency": "strict",
+        "rateKey": "ores:rl:v1:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "localCacheDecision": "miss",
+        "redisDecision": "allow",
+        "telemetryAttributes": {
+          "request.id": "synthetic",
+          "route.id": "synthetic",
+          "tenant.hash": "synthetic",
+          "principal.hash": "synthetic",
+          "authorization": "redacted",
+          "cookie": "redacted",
+          "database.url": "redacted",
+          "prompt.body": "redacted",
+          "signature": "redacted"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "reason": "allowed",
+        "startupAccepted": true,
+        "clientIdentitySource": "peer",
+        "rateLimitChecked": true,
+        "redisChecked": true,
+        "rateDecision": "allow",
+        "telemetryKeys": ["client.identity_source", "http.status_code", "principal.hash", "rate.decision", "rate.policy", "request.id", "route.id", "tenant.hash"]
+      }
+    }
+  ]
+}
