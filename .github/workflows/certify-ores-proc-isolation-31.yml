@@ -1,0 +1,57 @@
+name: certify ores-proc-isolation #31
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/certify-ores-proc-isolation-31.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  exact-head:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out carrier
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Check out exact ores-proc-isolation PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: ORESoftware/ores-proc-isolation-cli
+          ref: 0c079871f01543849f2255bcf4432dc92cb55690
+          path: source
+          persist-credentials: false
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify exact source SHA
+        working-directory: source
+        run: test "$(git rev-parse HEAD)" = "0c079871f01543849f2255bcf4432dc92cb55690"
+
+      - name: Verify formatting
+        working-directory: source
+        run: cargo fmt --check
+
+      - name: Check all targets
+        working-directory: source
+        run: cargo check --all-targets --locked
+
+      - name: Lint all targets
+        working-directory: source
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Run full test suite
+        working-directory: source
+        run: cargo test --locked
+
+      - name: Prove resolved-process secret serialization regression
+        working-directory: source
+        run: cargo test --locked resolved_process_serialization_omits_environment_values -- --exact --nocapture
